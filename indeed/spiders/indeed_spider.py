@@ -9,7 +9,7 @@ class IndeedSpider(scrapy.Spider):
 
     def parse(self, response):
 
-        jobs_on_page = response.xpath("//td[@id='resultsCol']").xpath("./div[@class='  row  result']")
+        jobs_on_page = response.xpath("//td[@id='resultsCol']").xpath("./div[@data-tn-component='organicJob']")
 
         for job in jobs_on_page:
             job_to_save  = IndeedJobItem()
