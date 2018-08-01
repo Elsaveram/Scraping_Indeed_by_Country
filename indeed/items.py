@@ -11,3 +11,7 @@ import scrapy
 class IndeedJobItem(scrapy.Item):
     # define the fields for your item here like:
     title = scrapy.Field()
+    company = scrapy.Field()
+    city = scrapy.Field()
+    region = scrapy.Field()
+    region_code = scrapy.Field()

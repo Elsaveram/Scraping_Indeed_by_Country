@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
+import re
 from indeed.items import IndeedJobItem
 
 class IndeedSpider(scrapy.Spider):
@@ -13,6 +14,13 @@ class IndeedSpider(scrapy.Spider):
 
         for job in jobs_on_page:
             job_to_save  = IndeedJobItem()
-            job_to_save['title'] = job.xpath("./h2/a/text()").extract_first()
-            print(job_to_save['title'])
+
+            location = job.xpath("./span[@class='location']/text()").extract_first().split(",")
+
+            job_to_save['title'] = job.xpath("./h2/a/@title").extract_first()
+            job_to_save['city'] = location[0].strip()
+            job_to_save['region'] = ''.join(re.findall('[a-zA-Z]+', location[1]))
+            job_to_save['region_code'] = ''.join(re.findall('\d+', location[1]))
+            job_to_save['company'] = ''.join(job.xpath(".//span[@class='company']//text()").extract()).strip()
+
             yield job_to_save
