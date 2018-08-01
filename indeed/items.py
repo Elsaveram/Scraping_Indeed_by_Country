@@ -15,3 +15,8 @@ class IndeedJobItem(scrapy.Item):
     city = scrapy.Field()
     region = scrapy.Field()
     region_code = scrapy.Field()
+    company = scrapy.Field()
+    how_long_open = scrapy.Field()
+    number_of_reviews = scrapy.Field()
+    rating = scrapy.Field()
+    summary = scrapy.Field()
