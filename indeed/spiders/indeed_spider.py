@@ -22,6 +22,8 @@ class IndeedSpider(Spider):
             job_to_save['region'] = ''.join(re.findall('[a-zA-Z]+', location[1]))
             job_to_save['region_code'] = ''.join(re.findall('\d+', location[1]))
             job_to_save['company'] = ''.join(job.xpath(".//span[@class='company']//text()").extract()).strip()
+            job_to_save['how_long_open']=job.xpath(".//span[@class='date']/text()").extract_first()
+            job_to_save['number_of_reviews']=job.xpath(".//span[@class='slNoUnderline']/text()").extract_first()
 
             yield Request(url=link_to_job_detail, meta=job_to_save, callback=self.parse_job_detail_page)
 
@@ -34,6 +36,6 @@ class IndeedSpider(Spider):
        #job_to_save['reports_to']
        #job_to_save['number_of_reviews']
        #job_to_save['description']
-       #job_to_save['how_long_open']
+
 
        yield job_to_save
