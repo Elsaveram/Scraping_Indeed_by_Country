@@ -10,6 +10,7 @@ import scrapy
 
 class IndeedJobItem(scrapy.Item):
     # define the fields for your item here like:
+    indeed_id = scrapy.Field()
     title = scrapy.Field()
     company = scrapy.Field()
     city = scrapy.Field()
