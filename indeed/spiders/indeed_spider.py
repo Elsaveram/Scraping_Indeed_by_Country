@@ -6,27 +6,42 @@ from indeed.items import IndeedJobItem
 
 class IndeedSpider(Spider):
     name = 'indeed_spider'
-    allowed_domains = ['indeed.com']
-    base_url = r'https://www.indeed.com/jobs?'
-    base_query_params = { 'q':'data scientist', 'jt':'fulltime' , 'l':'New York, NY', 'fromage':'30' }
+    start_urls = ["https://www.indeed.com/worldwide"]
 
     # Filters used are full time jobs opened in the last 30 days within 25 miles (default)
-    start_urls = [base_url + urllib.parse.urlencode(base_query_params)]
-
+    base_query_params = { 'q':'data scientist', 'fromage':'30' }
+    job_levels = ['entry_level', 'mid_level', 'senior_level']
 
     def parse(self, response):
+        country_urls = list(set(response.xpath("//tr[@class='countries']//a/@href").extract()))
+        for country_url in country_urls:
+            country = ''.join(response.xpath("//tr[@class='countries']//a[@href='"+country_url+"']/text()").extract())
+            for job_level in self.job_levels:
+                url = country_url + r'jobs?' + urllib.parse.urlencode({ **self.base_query_params, **{'explvl':job_level}})
+                yield Request(url, meta={'country':country}, callback=self.parse_pages)
+
+
+    def parse_pages(self, response):
         # Find the total number of pages in the result so that we can decide how many urls to scrape next
+        # If the counts do not exist we got zero results and need to return
         text = response.xpath('//div[@id="searchCount"]/text()').extract_first().replace(",","")
-        current_page, total_jobs = map(lambda x: int(x), re.findall('\d+', text))
 
-        print(total_jobs)
-        # List comprehension to construct all the urls
-        all_result_pages = [ self.start_urls[0] + '&start=' + str(start_job) for start_job in range(0,total_jobs,10)]
+        try:
+            current_page, total_jobs = map(lambda x: int(x), re.findall('\d+', text))
+        except:
+            try:
+                _, current_page, total_jobs = map(lambda x: int(x), re.findall('\d+', text))
+            except:
+                return
 
-        # Yield the requests to different search result urls,
-        # using parse_result_page function to parse the response.
-        for url in all_result_pages[:2]:
-            yield Request(url=url, callback=self.parse_result_page)
+        if total_jobs < 1000:
+            # List comprehension to construct all the urls
+            all_result_pages = [ response.request.url + '&start=' + str(start_job) for start_job in range(0,total_jobs,10)]
+
+            # Yield the requests to different search result urls, using parse_result_page function to parse the response.
+            for url in all_result_pages:
+                yield Request(url=url, meta={'country':response.meta['country']}, callback=self.parse_result_page)
+
 
     def parse_result_page(self, response):
         # Parse the jobs in each page
@@ -37,10 +52,15 @@ class IndeedSpider(Spider):
             job_to_save = {}
 
             # Location. It includes the city and some times the state and zip code
+            job_to_save['country'] = response.meta['country']
             location = job.xpath("./span[@class='location']/text()").extract_first().split(",")
             job_to_save['city'] = location[0].strip()
-            job_to_save['region'] = ''.join(re.findall('[a-zA-Z]+', location[1]))
-            job_to_save['region_code'] = ''.join(re.findall('\d+', location[1]))
+            try:
+                job_to_save['region'] = ''.join(re.findall('[a-zA-Z]+', location[1]))
+                job_to_save['region_code'] = ''.join(re.findall('\d+', location[1]))
+            except:
+                job_to_save['region'] = ''
+                job_to_save['region_code'] = ''
 
             # Company rating. The rating in the attribute "style" of the class "span" is shown as the number of pixels.
             # The total number of pixels that corresponds to a 5 star review can be found in the parent "span" class

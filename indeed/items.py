@@ -21,3 +21,4 @@ class IndeedJobItem(scrapy.Item):
     number_of_reviews = scrapy.Field()
     rating = scrapy.Field()
     summary = scrapy.Field()
+    country = scrapy.Field()
