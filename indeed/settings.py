@@ -13,7 +13,7 @@
 # scrapy shell -s USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.75 Safari/537.36" https://www.indeed.com/q-data-scientist-l-New-York,-NY-jobs.html
 # from bs4 import BeautifulSoup
 # BeautifulSoup(response.body).find('td', id='resultsCol')
-
+import logging
 
 BOT_NAME = 'indeed'
 
@@ -34,7 +34,9 @@ ROBOTSTXT_OBEY = False
 # Configure a delay for requests for the same website (default: 0)
 # See https://doc.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = .1
+DOWNLOAD_DELAY = .05
+LOG_LEVEL = logging.INFO
+
 # The download delay setting will honor only one of:
 #CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16

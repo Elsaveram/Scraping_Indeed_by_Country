@@ -12,35 +12,46 @@ class IndeedSpider(Spider):
     base_query_params = { 'q':'data scientist', 'fromage':'30' }
     job_levels = ['entry_level', 'mid_level', 'senior_level']
 
+    # The first pass at parsing is grabbing every country indeed has listing in.
     def parse(self, response):
         country_urls = list(set(response.xpath("//tr[@class='countries']//a/@href").extract()))
+
         for country_url in country_urls:
             country = ''.join(response.xpath("//tr[@class='countries']//a[@href='"+country_url+"']/text()").extract())
             for job_level in self.job_levels:
-                url = country_url + r'jobs?' + urllib.parse.urlencode({ **self.base_query_params, **{'explvl':job_level}})
+                url = country_url+r'jobs?'+urllib.parse.urlencode({ **self.base_query_params, **{'explvl':job_level}})
                 yield Request(url, meta={'country':country}, callback=self.parse_pages)
 
-
+    # Find the total number of pages in the result so that we can decide how many urls to scrape next
     def parse_pages(self, response):
-        # Find the total number of pages in the result so that we can decide how many urls to scrape next
-        # If the counts do not exist we got zero results and need to return
-        text = response.xpath('//div[@id="searchCount"]/text()').extract_first().replace(",","")
+        # First we try the US style with two numbers then the international style with three.
+        all_result_pages = []
 
         try:
-            current_page, total_jobs = map(lambda x: int(x), re.findall('\d+', text))
+            page_and_item_count = response.xpath('//div[@id="searchCount"]/text()').extract_first().replace(",","")
+            current_page, total_jobs = map(lambda x: int(x), re.findall('\d+', page_and_item_count ))
         except:
             try:
-                _, current_page, total_jobs = map(lambda x: int(x), re.findall('\d+', text))
+                _, current_page, total_jobs = map(lambda x: int(x), re.findall('\d+', page_and_item_count ))
             except:
                 return
 
-        if total_jobs < 1000:
-            # List comprehension to construct all the urls
-            all_result_pages = [ response.request.url + '&start=' + str(start_job) for start_job in range(0,total_jobs,10)]
+        if total_jobs > 999:
+            # Break jobs down by location
+            locations = response.xpath('//div[@id="LOCATION_rbo"]//li')
+            for location in locations:
+                location_link = location.xpath('.//@href').extract_first()
+                location_name = location.xpath('.//a/text()').extract_first()
+                location_url = response.request.url.replace('/jobs', location_link)
+                # TBD: Pass location_name in as meta?
+                yield Request(url=location_url , meta={'country':response.meta['country']}, callback=self.parse_pages)
+        else:
+            all_result_pages = [response.request.url+'&start='+str(start_job) for start_job in range(0,total_jobs+10,10)]
 
-            # Yield the requests to different search result urls, using parse_result_page function to parse the response.
-            for url in all_result_pages:
-                yield Request(url=url, meta={'country':response.meta['country']}, callback=self.parse_result_page)
+        # Yield the requests to different search result urls, using parse_result_page function
+        # to parse the response.
+        for url in all_result_pages:
+            yield Request(url=url, meta={'country':response.meta['country']}, callback=self.parse_result_page)
 
 
     def parse_result_page(self, response):
@@ -77,12 +88,18 @@ class IndeedSpider(Spider):
             job_to_save['company'] = ''.join(job.xpath(".//span[@class='company']//text()").extract()).strip()
             job_to_save['how_long_open'] = job.xpath(".//span[@class='date']/text()").extract_first()
 
+            # Salary data does not always exist
+            try:
+                job_to_save['salary'] = job.xpath(".//td/div/span[@class='no-wrap']/text()").extract_first().strip()
+            except:
+                job_to_save['salary'] = ""
+
             # Number of company reviews can be empty so it's wraped it in a try block
             try:
                 reviews = job.xpath(".//span[@class='slNoUnderline']/text()").extract_first()
                 job_to_save['number_of_reviews'] = int(''.join(re.findall('\d+', reviews)))
             except:
-                job_to_save['number_of_reviews'] = ""
+                job_to_save['number_of_reviews'] = 0
 
             # The job details link is a relative link. Concatenate with start url
             link_to_job_detail = "https://www.indeed.com" + job.xpath("./h2/a/@href").extract_first()
@@ -103,10 +120,5 @@ class IndeedSpider(Spider):
         # Add a striped version of the summary
         summary_raw = ''.join(response.xpath("//span[@class='summary']//text()").extract())
         job_to_save['summary'] = summary_raw.replace('\n','')
-
-        # Uncomment if summary is not working.
-        # print("="*50)
-        # print(summary_raw.replace('\n',''))
-        # print(job_to_save)
 
         yield job_to_save
