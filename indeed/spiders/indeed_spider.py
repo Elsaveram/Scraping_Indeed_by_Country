@@ -15,7 +15,8 @@ class IndeedSpider(Spider):
     # The first pass at parsing is grabbing every country indeed has listing in.
     def parse(self, response):
         country_urls = list(set(response.xpath("//tr[@class='countries']//a/@href").extract()))
-
+        country_urls.append('https://www.indeed.com/')
+        
         for country_url in country_urls:
             country = ''.join(response.xpath("//tr[@class='countries']//a[@href='"+country_url+"']/text()").extract())
             for job_level in self.job_levels:
