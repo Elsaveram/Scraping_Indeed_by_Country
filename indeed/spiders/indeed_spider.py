@@ -9,14 +9,20 @@ class IndeedSpider(Spider):
     start_urls = ["https://www.indeed.com/worldwide"]
 
     # Filters used are full time jobs opened in the last 30 days within 25 miles (default)
+    # Indeed returns 1000 search results at a time
+    # All postings are scraped filtering by job levels
     base_query_params = { 'q':'data scientist', 'fromage':'30' }
     job_levels = ['entry_level', 'mid_level', 'senior_level']
 
     # The first pass at parsing is grabbing every country indeed has listing in.
+    # There are two href per country, one for the name and one for the flagself.
+    # Extracting the URLs for all the countries
     def parse(self, response):
         country_urls = list(set(response.xpath("//tr[@class='countries']//a/@href").extract()))
+        # Apending USA URL to the list of URLs
         country_urls.append('https://www.indeed.com/')
-        
+
+    # Getting the name of the country and making 3 URLs per country, one per job level
         for country_url in country_urls:
             country = ''.join(response.xpath("//tr[@class='countries']//a[@href='"+country_url+"']/text()").extract())
             for job_level in self.job_levels:
@@ -25,7 +31,8 @@ class IndeedSpider(Spider):
 
     # Find the total number of pages in the result so that we can decide how many urls to scrape next
     def parse_pages(self, response):
-        # First we try the US style with two numbers then the international style with three.
+        # First we try the US style with two numbers then the international style with three
+
         all_result_pages = []
 
         try:
@@ -44,7 +51,6 @@ class IndeedSpider(Spider):
                 location_link = location.xpath('.//@href').extract_first()
                 location_name = location.xpath('.//a/text()').extract_first()
                 location_url = response.request.url.replace('/jobs', location_link)
-                # TBD: Pass location_name in as meta?
                 yield Request(url=location_url , meta={'country':response.meta['country']}, callback=self.parse_pages)
         else:
             all_result_pages = [response.request.url+'&start='+str(start_job) for start_job in range(0,total_jobs+10,10)]
